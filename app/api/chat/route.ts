@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import Phospho from 'phospho';
 
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
 Phospho.init({
   apiKey: process.env.PHOSPHO_API_KEY,
   projectId: process.env.PHOSPHO_PROJECT_ID,
-});
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 const SYSTEM_PROMPT = `Tu es Nicolas, un assistant de jardinage amical et plein de connaissances. Tu parles exclusivement en français. Ton rôle principal est d'aider les utilisateurs avec des questions et des sujets liés au jardinage. Utilise un ton chaleureux et n'hésite pas à ajouter une touche d'humour quand c'est approprié.
@@ -37,8 +37,11 @@ Rappelle-toi : tu es passionné par le jardinage et tu veux partager cet enthous
 
 export async function POST(req: Request) {
   try {
+    console.log('Starting POST request to /api/chat');
     const { messages } = await req.json();
+    console.log('Received messages:', JSON.stringify(messages));
 
+    console.log('Initiating Anthropic API call');
     const stream = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1024,
@@ -46,29 +49,43 @@ export async function POST(req: Request) {
       system: SYSTEM_PROMPT,
       stream: true,
     });
+    console.log('Anthropic API call successful');
 
     let fullResponse = '';
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const chunk of stream) {
-          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-            fullResponse += chunk.delta.text;
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`));
+        try {
+          console.log('Starting stream processing');
+          for await (const chunk of stream) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+              fullResponse += chunk.delta.text;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`));
+            }
           }
-        }
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+          console.log('Stream processing completed');
 
-        // Log the complete interaction to Phospho
-        await Phospho.log({
-          input: messages[messages.length - 1].content,
-          output: fullResponse,
-          task_id: messages[messages.length - 1].id, // Assuming each message has a unique ID
-        });
+          console.log('Logging to Phospho');
+          try {
+            await Phospho.log({
+              input: messages[messages.length - 1].content,
+              output: fullResponse,
+              task_id: messages[messages.length - 1].id,
+            });
+            console.log('Phospho logging successful');
+          } catch (phosphoError) {
+            console.error('Error logging to Phospho:', phosphoError);
+          }
+        } catch (streamError) {
+          console.error('Error in stream processing:', streamError);
+          controller.error(streamError);
+        }
       },
     });
 
+    console.log('Returning response');
     return new NextResponse(readable, {
       headers: {
         'Content-Type': 'text/event-stream',
@@ -77,7 +94,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'An error occurred' }, { status: 500 });
+    console.error('Error in POST /api/chat:', error);
+    return NextResponse.json(
+      { error: 'An internal server error occurred', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
