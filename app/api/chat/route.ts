@@ -71,23 +71,17 @@ export async function POST(req: Request) {
             }
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
           console.log("Stream processing completed");
-
           console.log(
             "Logging to Phospho, task id:",
             messages[messages.length - 1].id
           );
           try {
-            const phosphoResponse = await phospho
-              .log({
-                input: messages[messages.length - 1].content,
-                output: fullResponse,
-                taskId: messages[messages.length - 1].id,
-              })
-              .then(async (response) => {
-                await phospho.sendBatch();
-              });
+            const phosphoResponse = await phospho.log({
+              input: messages[messages.length - 1].content,
+              output: fullResponse,
+              taskId: messages[messages.length - 1].id,
+            });
             console.log("Phospho logging successful:", phosphoResponse);
           } catch (phosphoError) {
             console.error("Error logging to Phospho:", phosphoError);
@@ -96,6 +90,10 @@ export async function POST(req: Request) {
               JSON.stringify(phosphoError, null, 2)
             );
           }
+          // Send the batch of logs to Phospho
+          phospho.sendBatch();
+          // Close the stream after logging to Phospho
+          controller.close();
         } catch (streamError) {
           console.error("Error in stream processing:", streamError);
           controller.error(streamError);
