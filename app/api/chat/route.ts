@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import Phospho from 'phospho';
+import { waitUntil } from "@vercel/functions";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -72,10 +73,10 @@ export async function POST(req: Request) {
             const phosphoResponse = await Phospho.log({
               input: messages[messages.length - 1].content,
               output: fullResponse,
-              task_id: messages[messages.length - 1].id,
+              taskId: messages[messages.length - 1].id,
             });
             console.log('Phospho logging successful:', phosphoResponse);
-            Phospho.sendBatch()
+            waitUntil(Phospho.sendBatch())
           } catch (phosphoError) {
             console.error('Error logging to Phospho:', phosphoError);
             console.error('Phospho error details:', JSON.stringify(phosphoError, null, 2));
