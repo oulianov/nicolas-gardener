@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1024,
       messages: messages,
+      system: SYSTEM_PROMPT,  // Add this line to include the system prompt
       stream: true,
     });
 
