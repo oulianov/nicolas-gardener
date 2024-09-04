@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { phospho } from "phospho";
+import { waitUntil } from "@vercel/functions";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -71,6 +72,8 @@ export async function POST(req: Request) {
             }
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+
           console.log("Stream processing completed");
           console.log(
             "Logging to Phospho, task id:",
@@ -91,9 +94,8 @@ export async function POST(req: Request) {
             );
           }
           // Send the batch of logs to Phospho
-          phospho.sendBatch();
+          waitUntil(phospho.sendBatch());
           // Close the stream after logging to Phospho
-          controller.close();
         } catch (streamError) {
           console.error("Error in stream processing:", streamError);
           controller.error(streamError);
