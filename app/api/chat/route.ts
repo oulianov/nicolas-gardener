@@ -75,6 +75,7 @@ export async function POST(req: Request) {
               task_id: messages[messages.length - 1].id,
             });
             console.log('Phospho logging successful:', phosphoResponse);
+            Phospho.sendBatch()
           } catch (phosphoError) {
             console.error('Error logging to Phospho:', phosphoError);
             console.error('Phospho error details:', JSON.stringify(phosphoError, null, 2));
