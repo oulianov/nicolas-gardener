@@ -83,7 +83,7 @@ export async function POST(req: Request) {
               .log({
                 input: messages[messages.length - 1].content,
                 output: fullResponse,
-                task_id: messages[messages.length - 1].id,
+                taskId: messages[messages.length - 1].id,
               })
               .then(async (response) => {
                 await phospho.sendBatch();
