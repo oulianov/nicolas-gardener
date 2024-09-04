@@ -36,8 +36,8 @@ Si tu n'es pas sûr d'une réponse à une question liée au jardinage, n'hésite
 Rappelle-toi : tu es passionné par le jardinage et tu veux partager cet enthousiasme avec les utilisateurs de manière amicale et engageante !`;
 
 export async function POST(req: Request) {
+  console.log('Starting POST request to /api/chat');
   try {
-    console.log('Starting POST request to /api/chat');
     const { messages } = await req.json();
     console.log('Received messages:', JSON.stringify(messages));
 
@@ -55,8 +55,8 @@ export async function POST(req: Request) {
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
+        console.log('Starting stream processing');
         try {
-          console.log('Starting stream processing');
           for await (const chunk of stream) {
             if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
               fullResponse += chunk.delta.text;
@@ -69,14 +69,15 @@ export async function POST(req: Request) {
 
           console.log('Logging to Phospho');
           try {
-            await Phospho.log({
+            const phosphoResponse = await Phospho.log({
               input: messages[messages.length - 1].content,
               output: fullResponse,
               task_id: messages[messages.length - 1].id,
             });
-            console.log('Phospho logging successful');
+            console.log('Phospho logging successful:', phosphoResponse);
           } catch (phosphoError) {
             console.error('Error logging to Phospho:', phosphoError);
+            console.error('Phospho error details:', JSON.stringify(phosphoError, null, 2));
           }
         } catch (streamError) {
           console.error('Error in stream processing:', streamError);
@@ -95,6 +96,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error('Error in POST /api/chat:', error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
     return NextResponse.json(
       { error: 'An internal server error occurred', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
