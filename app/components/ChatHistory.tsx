@@ -7,9 +7,10 @@ interface ChatHistoryProps {
   messages: Array<{ role: string; content: string }>;
   showWelcomeMessages: boolean;
   welcomeMessages: string[];
+  currentAssistantMessage: string;
 }
 
-const ChatHistory: React.FC<ChatHistoryProps> = ({ messages, showWelcomeMessages, welcomeMessages }) => {
+const ChatHistory: React.FC<ChatHistoryProps> = ({ messages, showWelcomeMessages, welcomeMessages, currentAssistantMessage }) => {
   return (
     <div className="space-y-3 p-2 h-full">
       {showWelcomeMessages && messages.length === 0 && (
@@ -47,6 +48,22 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ messages, showWelcomeMessages
           {message.role === 'user' && <div className="w-6 ml-2" />}
         </div>
       ))}
+      {currentAssistantMessage && (
+        <div className="flex justify-start items-end">
+          <div className="mr-2 flex-shrink-0">
+            <Image
+              src="/nicolas-avatar.png"
+              alt="Nicolas"
+              width={24}
+              height={24}
+              className="rounded-full"
+            />
+          </div>
+          <div className="p-2 bg-gray-100 text-gray-800 rounded-t-2xl rounded-r-2xl rounded-bl-xl max-w-[70%] break-words shadow-sm">
+            <p className="text-sm">{currentAssistantMessage}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
