@@ -30,7 +30,6 @@ export const metadata: Metadata = {
     description: 'Des conseils verts à la pelle et de l\'humour à revendre. Votre jardin va adorer !',
     images: ['https://nicolas-gardener.vercel.app/nicolas-cover.jpg'],
   },
-  themeColor: '#4CAF50', // Une jolie couleur verte pour le thème
 }
 
 export default function RootLayout({

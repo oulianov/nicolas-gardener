@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import Phospho from 'phospho';
+
+Phospho.init({
+  apiKey: process.env.PHOSPHO_API_KEY,
+  projectId: process.env.PHOSPHO_PROJECT_ID,
+});
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -37,20 +43,29 @@ export async function POST(req: Request) {
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1024,
       messages: messages,
-      system: SYSTEM_PROMPT,  // Add this line to include the system prompt
+      system: SYSTEM_PROMPT,
       stream: true,
     });
 
+    let fullResponse = '';
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
         for await (const chunk of stream) {
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            fullResponse += chunk.delta.text;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`));
           }
         }
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
+
+        // Log the complete interaction to Phospho
+        await Phospho.log({
+          input: messages[messages.length - 1].content,
+          output: fullResponse,
+          task_id: messages[messages.length - 1].id, // Assuming each message has a unique ID
+        });
       },
     });
 
