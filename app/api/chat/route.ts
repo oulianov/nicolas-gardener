@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
-import Phospho from 'phospho';
+import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { phospho } from "phospho";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-Phospho.init({
+phospho.init({
   apiKey: process.env.PHOSPHO_API_KEY,
   projectId: process.env.PHOSPHO_PROJECT_ID,
 });
@@ -36,12 +36,12 @@ Si tu n'es pas sûr d'une réponse à une question liée au jardinage, n'hésite
 Rappelle-toi : tu es passionné par le jardinage et tu veux partager cet enthousiasme avec les utilisateurs de manière amicale et engageante !`;
 
 export async function POST(req: Request) {
-  console.log('Starting POST request to /api/chat');
+  console.log("Starting POST request to /api/chat");
   try {
     const { messages } = await req.json();
-    console.log('Received messages:', JSON.stringify(messages));
+    console.log("Received messages:", JSON.stringify(messages));
 
-    console.log('Initiating Anthropic API call');
+    console.log("Initiating Anthropic API call");
     const stream = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1024,
@@ -49,57 +49,73 @@ export async function POST(req: Request) {
       system: SYSTEM_PROMPT,
       stream: true,
     });
-    console.log('Anthropic API call successful');
+    console.log("Anthropic API call successful");
 
-    let fullResponse = '';
+    let fullResponse = "";
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
-        console.log('Starting stream processing');
+        console.log("Starting stream processing");
         try {
           for await (const chunk of stream) {
-            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            if (
+              chunk.type === "content_block_delta" &&
+              chunk.delta.type === "text_delta"
+            ) {
               fullResponse += chunk.delta.text;
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`));
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`
+                )
+              );
             }
           }
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
-          console.log('Stream processing completed');
+          console.log("Stream processing completed");
 
-          console.log('Logging to Phospho');
+          console.log("Logging to Phospho");
           try {
-            const phosphoResponse = await Phospho.log({
-              input: messages[messages.length - 1].content,
-              output: fullResponse,
-              task_id: messages[messages.length - 1].id,
-            });
-            console.log('Phospho logging successful:', phosphoResponse);
-            Phospho.sendBatch()
+            const phosphoResponse = await phospho
+              .log({
+                input: messages[messages.length - 1].content,
+                output: fullResponse,
+                task_id: messages[messages.length - 1].id,
+              })
+              .then(async (response) => {
+                await phospho.sendBatch();
+              });
+            console.log("Phospho logging successful:", phosphoResponse);
           } catch (phosphoError) {
-            console.error('Error logging to Phospho:', phosphoError);
-            console.error('Phospho error details:', JSON.stringify(phosphoError, null, 2));
+            console.error("Error logging to Phospho:", phosphoError);
+            console.error(
+              "Phospho error details:",
+              JSON.stringify(phosphoError, null, 2)
+            );
           }
         } catch (streamError) {
-          console.error('Error in stream processing:', streamError);
+          console.error("Error in stream processing:", streamError);
           controller.error(streamError);
         }
       },
     });
 
-    console.log('Returning response');
+    console.log("Returning response");
     return new NextResponse(readable, {
       headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
       },
     });
   } catch (error) {
-    console.error('Error in POST /api/chat:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
+    console.error("Error in POST /api/chat:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
     return NextResponse.json(
-      { error: 'An internal server error occurred', details: error instanceof Error ? error.message : String(error) },
+      {
+        error: "An internal server error occurred",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
