@@ -74,7 +74,10 @@ export async function POST(req: Request) {
           controller.close();
           console.log("Stream processing completed");
 
-          console.log("Logging to Phospho");
+          console.log(
+            "Logging to Phospho, task id:",
+            messages[messages.length - 1].id
+          );
           try {
             const phosphoResponse = await phospho
               .log({
